@@ -26,21 +26,16 @@ func (m *mockWeatherRepository) GetForecast(_ string) (*repositories.ForecastDat
 func TestWeatherService_GetCurrentWeather_Success(t *testing.T) {
 	mock := &mockWeatherRepository{
 		currentWeather: &repositories.WeatherData{
-			Name: "Rio de Janeiro",
-			Sys:  struct{ Country string `json:"country"` }{Country: "BR"},
-			Main: struct {
-				Temp      float64 `json:"temp"`
-				FeelsLike float64 `json:"feels_like"`
-				TempMin   float64 `json:"temp_min"`
-				TempMax   float64 `json:"temp_max"`
-				Humidity  int     `json:"humidity"`
-			}{Temp: 32.0, FeelsLike: 35.0, TempMin: 28.0, TempMax: 34.0, Humidity: 80},
-			Weather: []struct {
-				Main        string `json:"main"`
-				Description string `json:"description"`
-			}{{Main: "Clear", Description: "céu limpo"}},
-			Wind:       struct{ Speed float64 `json:"speed"` }{Speed: 5.0},
-			Visibility: 10000,
+			City:        "Rio de Janeiro",
+			Country:     "BR",
+			Temperature: 32.0,
+			FeelsLike:   35.0,
+			TempMin:     28.0,
+			TempMax:     34.0,
+			Humidity:    80,
+			Description: "céu limpo",
+			WindSpeed:   5.0,
+			Visibility:  10000,
 		},
 	}
 
@@ -55,6 +50,12 @@ func TestWeatherService_GetCurrentWeather_Success(t *testing.T) {
 	}
 	if result.Temperature != 32.0 {
 		t.Errorf("expected temperature 32.0, got %f", result.Temperature)
+	}
+	if result.FeelsLike != 35.0 {
+		t.Errorf("expected feels like 35.0, got %f", result.FeelsLike)
+	}
+	if result.TempMin != 28.0 || result.TempMax != 34.0 {
+		t.Errorf("unexpected min/max temps: min=%f max=%f", result.TempMin, result.TempMax)
 	}
 	if result.Description != "céu limpo" {
 		t.Errorf("unexpected description: %s", result.Description)
@@ -86,52 +87,32 @@ func TestWeatherService_GetCurrentWeather_RepoError(t *testing.T) {
 func TestWeatherService_GetForecast_Success(t *testing.T) {
 	mock := &mockWeatherRepository{
 		forecastData: &repositories.ForecastData{
-			City: struct {
-				Name    string `json:"name"`
-				Country string `json:"country"`
-			}{Name: "Fortaleza", Country: "BR"},
+			City:    "Fortaleza",
+			Country: "BR",
 			List: []repositories.ForecastItem{
 				{
-					DtTxt: "2024-06-01 12:00:00",
-					Main: struct {
-						Temp     float64 `json:"temp"`
-						TempMin  float64 `json:"temp_min"`
-						TempMax  float64 `json:"temp_max"`
-						Humidity int     `json:"humidity"`
-					}{Temp: 30.0, TempMin: 27.0, TempMax: 33.0, Humidity: 75},
-					Weather: []struct {
-						Main        string `json:"main"`
-						Description string `json:"description"`
-					}{{Main: "Clear", Description: "céu limpo"}},
-					Wind: struct{ Speed float64 `json:"speed"` }{Speed: 4.0},
+					Date:        "2024-06-01",
+					TempMin:     27.0,
+					TempMax:     33.0,
+					Humidity:    75,
+					Description: "céu limpo",
+					WindSpeed:   4.0,
 				},
 				{
-					DtTxt: "2024-06-01 15:00:00", // same day — should be skipped
-					Main: struct {
-						Temp     float64 `json:"temp"`
-						TempMin  float64 `json:"temp_min"`
-						TempMax  float64 `json:"temp_max"`
-						Humidity int     `json:"humidity"`
-					}{Temp: 31.0, TempMin: 28.0, TempMax: 34.0, Humidity: 70},
-					Weather: []struct {
-						Main        string `json:"main"`
-						Description string `json:"description"`
-					}{{Main: "Clear", Description: "ensolarado"}},
-					Wind: struct{ Speed float64 `json:"speed"` }{Speed: 3.0},
+					Date:        "2024-06-01", // same day — should be skipped
+					TempMin:     28.0,
+					TempMax:     34.0,
+					Humidity:    70,
+					Description: "ensolarado",
+					WindSpeed:   3.0,
 				},
 				{
-					DtTxt: "2024-06-02 12:00:00",
-					Main: struct {
-						Temp     float64 `json:"temp"`
-						TempMin  float64 `json:"temp_min"`
-						TempMax  float64 `json:"temp_max"`
-						Humidity int     `json:"humidity"`
-					}{Temp: 28.0, TempMin: 25.0, TempMax: 30.0, Humidity: 80},
-					Weather: []struct {
-						Main        string `json:"main"`
-						Description string `json:"description"`
-					}{{Main: "Rain", Description: "chuva"}},
-					Wind: struct{ Speed float64 `json:"speed"` }{Speed: 6.0},
+					Date:        "2024-06-02",
+					TempMin:     25.0,
+					TempMax:     30.0,
+					Humidity:    80,
+					Description: "chuva",
+					WindSpeed:   6.0,
 				},
 			},
 		},

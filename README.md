@@ -1,6 +1,6 @@
 # climate-check-go
 
-Uma API REST em Go que integra com o [OpenWeatherMap](https://openweathermap.org/api) para fornecer informações meteorológicas em tempo real e ajudar o usuário a planejar sua rotina com base no clima.
+Uma API REST em Go que integra com a [Open-Meteo](https://open-meteo.com) para fornecer informações meteorológicas em tempo real e ajudar o usuário a planejar sua rotina com base no clima.
 
 ## Estrutura do projeto
 
@@ -15,26 +15,27 @@ climate-check-go/
     ├── services/
     │   └── weather_service.go          # Lógica de negócio e sugestões de rotina
     └── repositories/
-        └── weather_repository.go       # Acesso à API do OpenWeatherMap
+        └── weather_repository.go       # Acesso às APIs da Open-Meteo (clima e geocoding)
 ```
 
 ## Pré-requisitos
 
 * Go 1.21+
-* Chave de API gratuita em <https://openweathermap.org/api>
+* Não é necessária chave de API para a integração padrão com Open-Meteo
 
 ## Configuração
 
-1. Copie o arquivo de exemplo e preencha com sua chave de API:
+1. Copie o arquivo de exemplo:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Edite `.env`:
+2. Edite `.env` se quiser sobrescrever URLs padrão:
 
 ```env
-WEATHER_API_KEY=sua_chave_aqui
+WEATHER_BASE_URL=https://api.open-meteo.com/v1
+GEOCODING_BASE_URL=https://geocoding-api.open-meteo.com/v1
 ```
 
 ## Executando

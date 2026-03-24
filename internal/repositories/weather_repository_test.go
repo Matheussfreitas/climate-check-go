@@ -4,138 +4,175 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Matheussfreitas/climate-check-go/internal/repositories"
 )
 
-func newWeatherServer(statusCode int, body interface{}) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(statusCode)
-		if body != nil {
-			_ = json.NewEncoder(w).Encode(body)
-		}
-	}))
-}
-
 func TestGetCurrentWeather_Success(t *testing.T) {
-	payload := map[string]interface{}{
-		"name": "São Paulo",
-		"sys":  map[string]string{"country": "BR"},
-		"main": map[string]interface{}{
-			"temp":       25.0,
-			"feels_like": 26.0,
-			"temp_min":   22.0,
-			"temp_max":   28.0,
-			"humidity":   70,
-		},
-		"weather":    []map[string]string{{"main": "Clouds", "description": "nublado"}},
-		"wind":       map[string]float64{"speed": 3.5},
-		"visibility": 10000,
-	}
+	weatherMux := http.NewServeMux()
+	weatherMux.HandleFunc("/forecast", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"current": map[string]interface{}{
+				"temperature_2m":       25.0,
+				"apparent_temperature": 26.0,
+				"relative_humidity_2m": 70,
+				"weather_code":         3,
+				"wind_speed_10m":       3.5,
+				"visibility":           9500,
+			},
+			"daily": map[string]interface{}{
+				"temperature_2m_min": []float64{22.0},
+				"temperature_2m_max": []float64{28.0},
+			},
+		})
+	})
+	weatherTS := httptest.NewServer(weatherMux)
+	defer weatherTS.Close()
 
-	ts := newWeatherServer(http.StatusOK, payload)
-	defer ts.Close()
+	geoMux := http.NewServeMux()
+	geoMux.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"results": []map[string]interface{}{
+				{
+					"name":         "São Paulo",
+					"country_code": "br",
+					"latitude":     -23.55,
+					"longitude":    -46.63,
+				},
+			},
+		})
+	})
+	geoTS := httptest.NewServer(geoMux)
+	defer geoTS.Close()
 
-	repo := repositories.NewWeatherRepository("test-key", ts.URL)
+	repo := repositories.NewWeatherRepository(weatherTS.URL, geoTS.URL)
 	data, err := repo.GetCurrentWeather("São Paulo")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if data.Name != "São Paulo" {
-		t.Errorf("expected city 'São Paulo', got '%s'", data.Name)
+	if data.City != "São Paulo" {
+		t.Errorf("expected city 'São Paulo', got '%s'", data.City)
 	}
-	if data.Main.Temp != 25.0 {
-		t.Errorf("expected temp 25.0, got %f", data.Main.Temp)
+	if data.Temperature != 25.0 {
+		t.Errorf("expected temp 25.0, got %f", data.Temperature)
 	}
-	if data.Main.Humidity != 70 {
-		t.Errorf("expected humidity 70, got %d", data.Main.Humidity)
+	if data.Humidity != 70 {
+		t.Errorf("expected humidity 70, got %d", data.Humidity)
 	}
-	if len(data.Weather) == 0 || data.Weather[0].Description != "nublado" {
-		t.Errorf("unexpected weather description")
+	if data.FeelsLike != 26.0 {
+		t.Errorf("expected feels like 26.0, got %f", data.FeelsLike)
+	}
+	if data.TempMin != 22.0 || data.TempMax != 28.0 {
+		t.Errorf("unexpected min/max temps: min=%f max=%f", data.TempMin, data.TempMax)
+	}
+	if data.Visibility != 9500 {
+		t.Errorf("expected visibility 9500, got %d", data.Visibility)
+	}
+	if data.Description != "nublado" {
+		t.Errorf("expected description 'nublado', got '%s'", data.Description)
 	}
 }
 
-func TestGetCurrentWeather_NotFound(t *testing.T) {
-	ts := newWeatherServer(http.StatusNotFound, nil)
-	defer ts.Close()
+func TestGetCurrentWeather_CityNotFound(t *testing.T) {
+	weatherTS := httptest.NewServer(http.NewServeMux())
+	defer weatherTS.Close()
 
-	repo := repositories.NewWeatherRepository("test-key", ts.URL)
+	geoMux := http.NewServeMux()
+	geoMux.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"results": []interface{}{}})
+	})
+	geoTS := httptest.NewServer(geoMux)
+	defer geoTS.Close()
+
+	repo := repositories.NewWeatherRepository(weatherTS.URL, geoTS.URL)
 	_, err := repo.GetCurrentWeather("InvalidCity")
 
 	if err == nil {
 		t.Fatal("expected error for not-found city, got nil")
 	}
-}
-
-func TestGetCurrentWeather_InvalidAPIKey(t *testing.T) {
-	ts := newWeatherServer(http.StatusUnauthorized, nil)
-	defer ts.Close()
-
-	repo := repositories.NewWeatherRepository("bad-key", ts.URL)
-	_, err := repo.GetCurrentWeather("São Paulo")
-
-	if err == nil {
-		t.Fatal("expected error for invalid API key, got nil")
+	if !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected not found error, got %v", err)
 	}
 }
 
 func TestGetForecast_Success(t *testing.T) {
-	payload := map[string]interface{}{
-		"city": map[string]string{"name": "Curitiba", "country": "BR"},
-		"list": []map[string]interface{}{
-			{
-				"dt_txt": "2024-01-01 12:00:00",
-				"main": map[string]interface{}{
-					"temp":     18.0,
-					"temp_min": 15.0,
-					"temp_max": 20.0,
-					"humidity": 65,
-				},
-				"weather": []map[string]string{{"main": "Clear", "description": "céu limpo"}},
-				"wind":    map[string]float64{"speed": 2.0},
+	weatherMux := http.NewServeMux()
+	weatherMux.HandleFunc("/forecast", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"daily": map[string]interface{}{
+				"time":                     []string{"2024-01-01", "2024-01-02"},
+				"temperature_2m_min":       []float64{15.0, 13.0},
+				"temperature_2m_max":       []float64{20.0, 19.0},
+				"relative_humidity_2m_mean": []int{65, 75},
+				"wind_speed_10m_max":       []float64{2.0, 4.0},
+				"weather_code":             []int{0, 63},
+				"precipitation_sum":        []float64{0.0, 3.1},
 			},
-			{
-				"dt_txt": "2024-01-02 12:00:00",
-				"main": map[string]interface{}{
-					"temp":     16.0,
-					"temp_min": 13.0,
-					"temp_max": 19.0,
-					"humidity": 75,
+		})
+	})
+	weatherTS := httptest.NewServer(weatherMux)
+	defer weatherTS.Close()
+
+	geoMux := http.NewServeMux()
+	geoMux.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"results": []map[string]interface{}{
+				{
+					"name":         "Curitiba",
+					"country_code": "BR",
+					"latitude":     -25.42,
+					"longitude":    -49.27,
 				},
-				"weather": []map[string]string{{"main": "Rain", "description": "chuva leve"}},
-				"wind":    map[string]float64{"speed": 4.0},
 			},
-		},
-	}
+		})
+	})
+	geoTS := httptest.NewServer(geoMux)
+	defer geoTS.Close()
 
-	ts := newWeatherServer(http.StatusOK, payload)
-	defer ts.Close()
-
-	repo := repositories.NewWeatherRepository("test-key", ts.URL)
+	repo := repositories.NewWeatherRepository(weatherTS.URL, geoTS.URL)
 	data, err := repo.GetForecast("Curitiba")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if data.City.Name != "Curitiba" {
-		t.Errorf("expected city 'Curitiba', got '%s'", data.City.Name)
+	if data.City != "Curitiba" {
+		t.Errorf("expected city 'Curitiba', got '%s'", data.City)
 	}
 	if len(data.List) != 2 {
 		t.Errorf("expected 2 forecast items, got %d", len(data.List))
 	}
+	if data.List[1].Description != "chuva" {
+		t.Errorf("expected rain description for 2nd day, got '%s'", data.List[1].Description)
+	}
 }
 
-func TestGetForecast_NotFound(t *testing.T) {
-	ts := newWeatherServer(http.StatusNotFound, nil)
-	defer ts.Close()
+func TestGetForecast_CityNotFound(t *testing.T) {
+	weatherTS := httptest.NewServer(http.NewServeMux())
+	defer weatherTS.Close()
 
-	repo := repositories.NewWeatherRepository("test-key", ts.URL)
+	geoMux := http.NewServeMux()
+	geoMux.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"results": []interface{}{}})
+	})
+	geoTS := httptest.NewServer(geoMux)
+	defer geoTS.Close()
+
+	repo := repositories.NewWeatherRepository(weatherTS.URL, geoTS.URL)
 	_, err := repo.GetForecast("NoSuchCity")
 
 	if err == nil {
 		t.Fatal("expected error for not-found city, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected not found error, got %v", err)
 	}
 }

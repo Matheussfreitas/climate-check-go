@@ -18,7 +18,7 @@ func main() {
 	}
 
 	// Repository → Service → Controller (dependency injection)
-	repo := repositories.NewWeatherRepository(cfg.WeatherAPIKey, cfg.WeatherBaseURL)
+	repo := repositories.NewWeatherRepository(cfg.WeatherBaseURL, cfg.GeocodingBaseURL)
 	svc := services.NewWeatherService(repo)
 	ctrl := controllers.NewWeatherController(svc)
 
