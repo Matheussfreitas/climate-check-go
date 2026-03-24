@@ -29,6 +29,9 @@ func TestWeatherService_GetCurrentWeather_Success(t *testing.T) {
 			City:        "Rio de Janeiro",
 			Country:     "BR",
 			Temperature: 32.0,
+			FeelsLike:   35.0,
+			TempMin:     28.0,
+			TempMax:     34.0,
 			Humidity:    80,
 			Description: "céu limpo",
 			WindSpeed:   5.0,
@@ -47,6 +50,12 @@ func TestWeatherService_GetCurrentWeather_Success(t *testing.T) {
 	}
 	if result.Temperature != 32.0 {
 		t.Errorf("expected temperature 32.0, got %f", result.Temperature)
+	}
+	if result.FeelsLike != 35.0 {
+		t.Errorf("expected feels like 35.0, got %f", result.FeelsLike)
+	}
+	if result.TempMin != 28.0 || result.TempMax != 34.0 {
+		t.Errorf("unexpected min/max temps: min=%f max=%f", result.TempMin, result.TempMax)
 	}
 	if result.Description != "céu limpo" {
 		t.Errorf("unexpected description: %s", result.Description)

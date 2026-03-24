@@ -13,6 +13,9 @@ type WeatherData struct {
 	City        string
 	Country     string
 	Temperature float64
+	FeelsLike   float64
+	TempMin     float64
+	TempMax     float64
 	Humidity    int
 	WindSpeed   float64
 	Visibility  int
@@ -60,10 +63,16 @@ type geocodingResponse struct {
 type openMeteoCurrentResponse struct {
 	Current struct {
 		Temperature2m      float64 `json:"temperature_2m"`
+		ApparentTemperature float64 `json:"apparent_temperature"`
 		RelativeHumidity2m int     `json:"relative_humidity_2m"`
 		WindSpeed10m       float64 `json:"wind_speed_10m"`
+		Visibility         float64 `json:"visibility"`
 		WeatherCode        int     `json:"weather_code"`
 	} `json:"current"`
+	Daily struct {
+		Temperature2mMin []float64 `json:"temperature_2m_min"`
+		Temperature2mMax []float64 `json:"temperature_2m_max"`
+	} `json:"daily"`
 }
 
 type openMeteoForecastResponse struct {
@@ -102,7 +111,7 @@ func (r *weatherRepository) GetCurrentWeather(city string) (*WeatherData, error)
 	}
 
 	endpoint := fmt.Sprintf(
-		"%s/forecast?latitude=%f&longitude=%f&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto",
+		"%s/forecast?latitude=%f&longitude=%f&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,visibility&daily=temperature_2m_min,temperature_2m_max&timezone=auto&forecast_days=1",
 		r.weatherBaseURL,
 		location.Latitude,
 		location.Longitude,
@@ -129,9 +138,12 @@ func (r *weatherRepository) GetCurrentWeather(city string) (*WeatherData, error)
 		City:        location.Name,
 		Country:     location.Country,
 		Temperature: data.Current.Temperature2m,
+		FeelsLike:   data.Current.ApparentTemperature,
+		TempMin:     safeFloatAt(data.Daily.Temperature2mMin, 0),
+		TempMax:     safeFloatAt(data.Daily.Temperature2mMax, 0),
 		Humidity:    data.Current.RelativeHumidity2m,
 		WindSpeed:   data.Current.WindSpeed10m,
-		Visibility:  10000,
+		Visibility:  int(data.Current.Visibility),
 		Description: description,
 	}, nil
 }

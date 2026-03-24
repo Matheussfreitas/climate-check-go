@@ -17,9 +17,15 @@ func TestGetCurrentWeather_Success(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"current": map[string]interface{}{
 				"temperature_2m":       25.0,
+				"apparent_temperature": 26.0,
 				"relative_humidity_2m": 70,
 				"weather_code":         3,
 				"wind_speed_10m":       3.5,
+				"visibility":           9500,
+			},
+			"daily": map[string]interface{}{
+				"temperature_2m_min": []float64{22.0},
+				"temperature_2m_max": []float64{28.0},
 			},
 		})
 	})
@@ -57,6 +63,15 @@ func TestGetCurrentWeather_Success(t *testing.T) {
 	}
 	if data.Humidity != 70 {
 		t.Errorf("expected humidity 70, got %d", data.Humidity)
+	}
+	if data.FeelsLike != 26.0 {
+		t.Errorf("expected feels like 26.0, got %f", data.FeelsLike)
+	}
+	if data.TempMin != 22.0 || data.TempMax != 28.0 {
+		t.Errorf("unexpected min/max temps: min=%f max=%f", data.TempMin, data.TempMax)
+	}
+	if data.Visibility != 9500 {
+		t.Errorf("expected visibility 9500, got %d", data.Visibility)
 	}
 	if data.Description != "nublado" {
 		t.Errorf("expected description 'nublado', got '%s'", data.Description)
