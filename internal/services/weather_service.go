@@ -65,23 +65,18 @@ func (s *weatherService) GetCurrentWeather(city string) (*CurrentWeather, error)
 		return nil, err
 	}
 
-	description := ""
-	if len(data.Weather) > 0 {
-		description = data.Weather[0].Description
-	}
-
 	return &CurrentWeather{
-		City:        data.Name,
-		Country:     data.Sys.Country,
-		Temperature: data.Main.Temp,
-		FeelsLike:   data.Main.FeelsLike,
-		TempMin:     data.Main.TempMin,
-		TempMax:     data.Main.TempMax,
-		Humidity:    data.Main.Humidity,
-		Description: description,
-		WindSpeed:   data.Wind.Speed,
+		City:        data.City,
+		Country:     data.Country,
+		Temperature: data.Temperature,
+		FeelsLike:   data.Temperature,
+		TempMin:     data.Temperature,
+		TempMax:     data.Temperature,
+		Humidity:    data.Humidity,
+		Description: data.Description,
+		WindSpeed:   data.WindSpeed,
 		Visibility:  data.Visibility,
-		Suggestion:  buildSuggestion(data.Main.Temp, data.Main.Humidity, data.Wind.Speed, description),
+		Suggestion:  buildSuggestion(data.Temperature, data.Humidity, data.WindSpeed, data.Description),
 	}, nil
 }
 
@@ -101,34 +96,26 @@ func (s *weatherService) GetForecast(city string) (*ForecastSummary, error) {
 	var days []DaySummary
 
 	for _, item := range data.List {
-		date := ""
-		if len(item.DtTxt) >= 10 {
-			date = item.DtTxt[:10]
-		}
+		date := item.Date
 		if seen[date] {
 			continue
 		}
 		seen[date] = true
 
-		description := ""
-		if len(item.Weather) > 0 {
-			description = item.Weather[0].Description
-		}
-
 		days = append(days, DaySummary{
 			Date:        date,
-			TempMin:     item.Main.TempMin,
-			TempMax:     item.Main.TempMax,
-			Humidity:    item.Main.Humidity,
-			Description: description,
-			WindSpeed:   item.Wind.Speed,
-			Suggestion:  buildSuggestion(item.Main.TempMax, item.Main.Humidity, item.Wind.Speed, description),
+			TempMin:     item.TempMin,
+			TempMax:     item.TempMax,
+			Humidity:    item.Humidity,
+			Description: item.Description,
+			WindSpeed:   item.WindSpeed,
+			Suggestion:  buildSuggestion(item.TempMax, item.Humidity, item.WindSpeed, item.Description),
 		})
 	}
 
 	return &ForecastSummary{
-		City:    data.City.Name,
-		Country: data.City.Country,
+		City:    data.City,
+		Country: data.Country,
 		Days:    days,
 	}, nil
 }
